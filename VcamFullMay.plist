@@ -44,11 +44,6 @@
             <!-- Productivity that uses camera (QR scan, docs) -->
             <string>com.microsoft.Office.Outlook</string>
             <string>com.google.chrome.ios</string>
-
-            <!-- Banking / e-KYC (selfie verification) -->
-            <string>com.tpbank.ebank</string>
-            <string>com.acb.acbmobileapp</string>
-            <string>com.VPBank.VPBankNeo</string>
         </array>
         <key>Mode</key>
         <string>Any</string>
