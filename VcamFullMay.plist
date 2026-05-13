@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        Substrate filter plist for VcamFullMay.
+        Lists apps the tweak will inject into. NEVER add com.apple.* system
+        bundles here — substrate hooks bind at dylib load time before %ctor
+        runs, so injecting into SpringBoard / installd / mediaserverd can
+        freeze the device. Keep this list to 3rd-party camera-using apps.
+
+        Mode=Any required by ellekit 1.1.3+ for App Store sandboxed apps to
+        match. Without it, the filter silently skips inject in sandboxed
+        processes (only SpringBoard would load the dylib — useless here).
+    -->
+    <key>Filter</key>
+    <dict>
+        <key>Bundles</key>
+        <array>
+            <!-- Messaging / video call -->
+            <string>com.vng.zalo</string>
+            <string>com.zing.zalo</string>
+            <string>vn.com.vng.zingalo</string>
+            <string>com.facebook.Facebook</string>
+            <string>com.facebook.Messenger</string>
+            <string>net.whatsapp.WhatsApp</string>
+            <string>com.tencent.mm</string>
+            <string>com.netease.mm</string>
+            <string>com.viber</string>
+            <string>com.skype.skype</string>
+            <string>ph.telegra.Telegraph</string>
+            <string>com.hammerandchisel.discord</string>
+            <string>jp.naver.line</string>
+            <string>com.kakao.talk</string>
+
+            <!-- Social / video upload -->
+            <string>com.burbn.instagram</string>
+            <string>com.zhiliaoapp.musically</string>
+            <string>com.ss.iphone.ugc.Aweme</string>
+            <string>com.toyopagroup.picaboo</string>
+            <string>com.google.ios.youtube</string>
+            <string>com.atebits.Tweetie2</string>
+
+            <!-- Productivity that uses camera (QR scan, docs) -->
+            <string>com.microsoft.Office.Outlook</string>
+            <string>com.google.chrome.ios</string>
+
+            <!-- Banking / e-KYC (selfie verification) -->
+            <string>com.tpbank.ebank</string>
+            <string>com.acb.acbmobileapp</string>
+            <string>com.VPBank.VPBankNeo</string>
+        </array>
+        <key>Mode</key>
+        <string>Any</string>
+    </dict>
+</dict>
+</plist>

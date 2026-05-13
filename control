@@ -1,12 +1,10 @@
-Package: com.vcam.qatool
-Name: VCam - Virtual Camera QA Tool
+Package: com.vcamfullmay.tweak
+Name: VcamFullMay
 Version: 1.0.0
 Architecture: iphoneos-arm64
-Description: Internal QA/testing virtual camera tweak for iOS. Provides simulated camera feed from local media files for testing app camera pipelines. NOT for production use.
-Maintainer: QA Team <qa@internal.test>
-Author: QA Team <qa@internal.test>
+Description: Virtual camera replacement for video calls + camera uploads. Feeds frames from a user-chosen video file into AVCaptureSession so any app using the standard camera API sees the video instead of the live feed. Includes basic JB hide (filesystem path probes, URL scheme probes, dlopen of substrate dylibs). Audio (mic) stream is untouched.
+Maintainer: Hieudeptrai04
+Author: Hieudeptrai04
 Section: Tweaks
-Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 15.0), preferenceloader
-Conflicts: 
-Replaces: 
-Tag: role::hacker
+Depends: ellekit | mobilesubstrate, firmware (>= 15.0)
+Tag: role::enduser

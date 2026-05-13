@@ -1,0 +1,129 @@
+================================================================
+  VcamFullMay — QUICK NOTES (folder đã copy ra Desktop)
+  Source code đầy đủ ở folder này, độc lập với ChangeInfoIos.
+================================================================
+
+FILES IN THIS FOLDER
+--------------------
+  Tweak.xm           Source code chính (~270 dòng):
+                       - VcamProxyDelegate (replace camera frame)
+                       - Hook AVCaptureVideoDataOutput
+                       - JB hide: NSFileManager + canOpenURL + dlopen
+  Makefile           Theos build config (rootless, arm64 + arm64e)
+  VcamFullMay.plist  Substrate filter — 24 app bundles (Zalo/FB/IG/...)
+  control            .deb package metadata
+  SETUP.txt          Hướng dẫn build + cài + cấu hình đầy đủ
+                       (đọc cái này TRƯỚC khi build)
+  NOTES.txt          File này — tóm tắt nhanh
+
+================================================================
+  QUY TRÌNH SỬ DỤNG (3 bước)
+================================================================
+
+[1] BUILD .deb (cần macOS/Linux + Theos, hoặc dùng GitHub Actions)
+    export THEOS=/opt/theos
+    export THEOS_PACKAGE_SCHEME=rootless
+    cd <folder này>
+    make package FINALPACKAGE=1 ARCHS="arm64 arm64e"
+    # Output: packages/com.vcamfullmay.tweak_1.0.0_iphoneos-arm64.deb
+
+[2] CÀI .deb LÊN IPHONE (qua SSH)
+    scp packages/*.deb mobile@<IP>:/var/mobile/Documents/
+    ssh mobile@<IP>
+    sudo dpkg -i /var/mobile/Documents/com.vcamfullmay.tweak_*.deb
+    sudo killall -9 SpringBoard
+
+[3] CUNG CẤP VIDEO ĐỂ FAKE
+    ssh mobile@<IP>
+    sudo mkdir -p /var/jb/etc/vcam
+    # SCP video từ PC sang:
+    scp myvideo.mp4 mobile@<IP>:/var/mobile/Documents/
+    ssh mobile@<IP>
+    sudo cp /var/mobile/Documents/myvideo.mp4 /var/jb/etc/vcam/video.mp4
+    sudo chmod 644 /var/jb/etc/vcam/video.mp4
+
+→ Mở Zalo/FB/IG... → tap camera → thấy video fake thay vì camera thật
+
+================================================================
+  ĐIỂM KỸ THUẬT CỐT LÕI
+================================================================
+
+CAMERA REPLACE
+- Hook -[AVCaptureVideoDataOutput setSampleBufferDelegate:queue:]
+- Wrap delegate gốc của app với VcamProxyDelegate
+- Mỗi frame camera thật fired → VcamProxyDelegate:
+    1. Lazy init AVAssetReader (lần đầu, match W×H + pixel format)
+    2. copyNextSampleBuffer() lấy frame video kế tiếp
+    3. Rebuild CMSampleBuffer: imageBuffer = FAKE, timing = REAL
+       (real timing → PTS liên tục → encoder downstream ko detect synthetic)
+    4. Forward sang delegate gốc
+- Hết video → cancelReading + setupReader again → loop tự động
+- Audio (mic) KHÔNG TOUCH → mic vẫn dùng thật
+
+JB HIDE
+- NSFileManager fileExistsAtPath:  → trả NO cho /var/jb, Cydia, Sileo,
+                                      Substrate, apt/dpkg, /bin/bash, ...
+- UIApplication canOpenURL:        → block cydia://, sileo://, zbra://,
+                                      filza://, undecimus://, activator://,
+                                      flex://
+- dlopen():                          → trả NULL cho path chứa "Substrate",
+                                       "TweakInject", "ElleKit", "libhooker",
+                                       "substitute", "pspawn_payload",
+                                       "VcamFullMay" (tự ẩn)
+
+================================================================
+  THIẾU GÌ SO VỚI ChangeInfoIos? (gaps to know)
+================================================================
+
+JB hide trong VcamFullMay là PHIÊN BẢN NHẸ. Để bypass sâu hơn (banking
+apps, anti-cheat SDK mạnh), cần port thêm từ ChangeInfoIos/tweak/Hooks.mm:
+
+  - stat() / lstat() / access() / fopen() C-level hooks
+    (app gọi C-API thay vì Obj-C để check /var/jb)
+  - _dyld_image_count + _dyld_get_image_name
+    (substrate dylib name vẫn xuất hiện trong loaded image list,
+     anti-tweak SDK walk dyld sẽ thấy)
+  - csops() / ptrace() / sysctl_PROC anti-debug
+  - getenv("DYLD_INSERT_LIBRARIES")
+
+Cho mục đích vcam đơn giản (Zalo/FB/IG video call) thì hide hiện tại đủ.
+Cho banking eKYC nghiêm ngặt thì cần port thêm.
+
+================================================================
+  CHANGE LIST APPS — TỰ MỞ RỘNG
+================================================================
+
+Mở VcamFullMay.plist trước khi build. Trong <array> dưới <key>Bundles</key>
+thêm bundle ID của app muốn inject. Ví dụ:
+
+    <string>com.tinder.tinder</string>
+    <string>com.linkedin.LinkedIn</string>
+
+Sau đó rebuild + cài lại .deb.
+
+LƯU Ý: KHÔNG bao giờ thêm com.apple.* (SpringBoard, Maps, Camera, ...) →
+device sẽ freeze. Chỉ thêm 3rd-party App Store apps.
+
+================================================================
+  TEST NHANH SAU KHI CÀI
+================================================================
+
+    ssh mobile@<IP>
+    sudo log show --predicate 'eventMessage contains "VcamFullMay"' \
+        --last 5m --info
+
+Nếu thấy "[VcamFullMay] loaded in <bundle id>" → tweak đã inject thành công.
+Nếu không thấy → check filter plist có bundle ID đúng không, ellekit/sub
+strate có chạy không.
+
+================================================================
+  CHI TIẾT ĐẦY ĐỦ → ĐỌC SETUP.txt
+================================================================
+SETUP.txt trong folder này có:
+- Build steps chi tiết
+- Cấu hình config.plist
+- Video file recommendations (format, resolution, length, tips realism)
+- Troubleshooting (đen màn, không inject, crash, ...)
+- Disable/uninstall instructions
+- Kiến trúc nội bộ cho người đọc code
+- Detection notes (cái gì hide được, cái gì chưa)

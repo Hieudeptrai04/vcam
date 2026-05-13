@@ -1,0 +1,302 @@
+================================================================
+  VcamFullMay — Virtual Camera Tweak for iOS Jailbreak
+  Replaces the live camera feed with a video file you choose
+================================================================
+
+WHAT IT DOES
+------------
+- Hooks AVCaptureVideoDataOutput.setSampleBufferDelegate
+- Decodes frames from your chosen video file via AVAssetReader
+- Replaces each camera frame with the next video frame BEFORE the app's
+  delegate sees it; the app's encoder/preview shows the video
+- Video loops automatically when it reaches the end
+- Microphone (audio) is UNTOUCHED — app gets real mic, fake video
+- Anti-detection: hides /var/jb, Cydia/Sileo paths, blocks JB URL schemes,
+  hides substrate dylibs from dlopen()
+
+WORKS WITH
+----------
+Out of the box (see VcamFullMay.plist for the full list):
+  - Zalo, Facebook, Messenger, WhatsApp, WeChat, Viber, Skype, Telegram,
+    Discord, LINE, KakaoTalk
+  - Instagram, TikTok (Musical.ly + Aweme), Snapchat, YouTube
+  - Outlook (camera attach), Chrome (QR scan)
+  - VN banking apps: TPBank, ACB, VPBank
+
+To add a new app: edit VcamFullMay.plist before building → add the app's
+bundle ID to the Bundles array → rebuild + reinstall.
+
+================================================================
+  REQUIREMENTS
+================================================================
+
+DEVICE
+- iOS 15.0+ with rootless jailbreak (Dopamine, palera1n rootless)
+- ellekit OR mobilesubstrate installed
+
+BUILD MACHINE
+- macOS or Linux with Theos installed
+  https://theos.dev/docs/installation
+- iPhoneOS SDK in $THEOS/sdks (any 15.x or 16.x SDK works)
+
+(If you don't have macOS/Linux: use the same GitHub Actions setup as the
+main ChangeInfoIos project. See `.github/workflows/build.yml` for a Mac
+runner that builds the tweak headlessly. Copy this folder into a new
+repo, point the workflow at it, push, download artifact.)
+
+================================================================
+  BUILD STEPS
+================================================================
+
+1. Open terminal on macOS/Linux build machine.
+
+2. Set environment:
+       export THEOS=/opt/theos
+       export THEOS_PACKAGE_SCHEME=rootless
+
+3. cd into this folder:
+       cd tweak/VcamFullMay
+
+4. Build:
+       make package FINALPACKAGE=1 ARCHS="arm64 arm64e"
+
+5. Output:
+       packages/com.vcamfullmay.tweak_1.0.0_iphoneos-arm64.deb
+
+================================================================
+  INSTALL ON IPHONE
+================================================================
+
+OPTION A — direct dpkg via SSH (recommended for personal use):
+    scp packages/com.vcamfullmay.tweak_1.0.0_iphoneos-arm64.deb \
+        mobile@<IP>:/var/mobile/Documents/
+    ssh mobile@<IP>
+    sudo dpkg -i /var/mobile/Documents/com.vcamfullmay.tweak_*.deb
+    sudo killall -9 SpringBoard
+
+OPTION B — Sileo "Install local .deb":
+    Transfer the .deb to the iPhone (AirDrop / iCloud / Filza).
+    Open the .deb in Files → "Open in Sileo" → Install → Respring.
+
+================================================================
+  CONFIGURE — PROVIDE YOUR VIDEO FILE
+================================================================
+
+The tweak reads from /var/jb/etc/vcam/video.mp4 by default. You MUST
+copy a video file there before it does anything.
+
+DEFAULT PATH SETUP (simplest):
+    ssh mobile@<IP>
+    sudo mkdir -p /var/jb/etc/vcam
+    sudo chmod 755 /var/jb/etc/vcam
+    # then SCP your video from PC:
+    scp myvideo.mp4 mobile@<IP>:/var/mobile/Documents/
+    ssh mobile@<IP>
+    sudo cp /var/mobile/Documents/myvideo.mp4 /var/jb/etc/vcam/video.mp4
+    sudo chmod 644 /var/jb/etc/vcam/video.mp4
+
+CUSTOM PATH (optional):
+Write a config plist with the path you want:
+    /var/jb/etc/vcam/config.plist:
+
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+          <key>videoPath</key>
+          <string>/var/mobile/Media/DCIM/100APPLE/my_vid.mp4</string>
+          <key>enabled</key>
+          <true/>
+      </dict>
+      </plist>
+
+================================================================
+  VIDEO FILE RECOMMENDATIONS
+================================================================
+
+FORMAT
+  - MP4 container, H.264 video, AAC audio (don't even need audio — only
+    the video track is read)
+  - Pixel format: any (the tweak converts to the session's exact format
+    via AVAssetReaderTrackOutput outputSettings)
+
+RESOLUTION
+  - Any resolution works. The tweak resizes per the app's expected
+    dimensions. For best fidelity, prefer:
+      - Front camera spoof:  720x1280 portrait or 1080x1920 portrait
+      - Rear camera spoof:   1280x720 landscape or 1920x1080 landscape
+  - Aspect ratio mismatch causes the app to letterbox or stretch — encode
+    in the same orientation as the camera you're replacing.
+
+LENGTH
+  - Any length. The tweak loops automatically.
+  - Keep it 10-60 seconds for video calls so loop seams aren't obvious.
+
+FILE SIZE
+  - Keep < 50MB. iOS reads it from disk on every reset of the reader
+    (when the loop wraps); large files = visible stall at the loop point.
+
+TIPS FOR REALISM
+  - Record from a real iPhone (matches sensor noise + autoexposure feel)
+  - Include subtle camera movement (handheld) so the feed doesn't look
+    like a static photo loop
+  - Don't have a clock or time-of-day reference visible in the video —
+    those make the loop obvious if the call lasts > video length
+
+================================================================
+  TESTING
+================================================================
+
+1. Install tweak + put video file in place.
+2. Respring (sudo killall -9 SpringBoard).
+3. Open Zalo or any supported app.
+4. Tap the camera button (selfie / video call / story).
+5. Preview should show YOUR VIDEO instead of the live camera.
+
+If you see the real camera instead:
+  - Check the app's bundle ID is in VcamFullMay.plist's Bundles array
+  - Check /var/jb/etc/vcam/video.mp4 exists and is readable
+  - Check enabled=true in config.plist (or that no config.plist exists)
+  - Check the tweak is actually loaded:
+      sudo log show --predicate 'eventMessage contains "VcamFullMay"' \
+          --last 5m --info
+    You should see "[VcamFullMay] loaded in <bundle id>" lines.
+
+================================================================
+  DISABLE / UNINSTALL
+================================================================
+
+TEMPORARY DISABLE — leave tweak installed but pass real camera through:
+    Edit /var/jb/etc/vcam/config.plist:
+        <key>enabled</key>
+        <false/>
+    Respring.
+
+PERMANENT REMOVE:
+    ssh mobile@<IP>
+    sudo apt remove com.vcamfullmay.tweak
+    sudo killall -9 SpringBoard
+
+================================================================
+  FILE LAYOUT (what's in this folder)
+================================================================
+
+  Tweak.xm           Main hook code (~270 lines):
+                       - VcamProxyDelegate (frame replacement)
+                       - AVCaptureVideoDataOutput hook
+                       - NSFileManager / UIApplication JB hide
+                       - dlopen() blocker for substrate dylibs
+                       - %ctor that loads the dlopen hook
+
+  Makefile           Theos build file:
+                       - TARGET iphone:clang:16.5:15.0
+                       - ARCHS arm64 + arm64e
+                       - Frameworks: UIKit, Foundation, AVFoundation,
+                         CoreMedia, CoreVideo, CoreGraphics
+                       - Links libsubstrate for MSHookFunction
+
+  VcamFullMay.plist  Substrate filter — which app bundles load this dylib
+
+  control            .deb metadata (package name, version, dependencies)
+
+  SETUP.txt          This file
+
+================================================================
+  TROUBLESHOOTING
+================================================================
+
+CAMERA SHOWS BLACK / FROZEN FRAME
+    → Video format incompatible with AVAssetReader.
+      Re-encode your video to MP4 H.264 baseline profile:
+          ffmpeg -i input.mov -c:v libx264 -profile:v baseline \
+              -pix_fmt yuv420p -c:a aac output.mp4
+
+CAMERA SHOWS REAL FEED, NOT FAKE
+    1. Verify tweak loaded:
+         sudo log show --predicate 'eventMessage contains "VcamFullMay"' \
+             --last 5m --info
+       If no log lines for the target app → filter plist doesn't match
+       that app's bundle ID, OR ellekit/substrate skipped inject.
+    2. Verify video file exists + readable by the app's sandbox:
+         ls -la /var/jb/etc/vcam/video.mp4
+       Permissions should be 644 (rw-r--r--).
+    3. Check config:
+         cat /var/jb/etc/vcam/config.plist
+       If enabled=false → set to true.
+
+APP CRASHES ON CAMERA OPEN
+    → Possible AVAssetReader format mismatch.
+      Re-encode video to 1080p MP4 H.264 baseline + yuv420p pixel format.
+      If still crashing, post the crash log — likely a session/format
+      edge case that needs a tweak update.
+
+TWEAK DOESN'T LOAD AT ALL
+    1. sudo ldid -h /var/jb/Library/MobileSubstrate/DynamicLibraries/VcamFullMay.dylib
+       Verify dylib codesign is valid.
+    2. otool -L .../VcamFullMay.dylib
+       Verify it links libsubstrate (or libellekit) properly.
+    3. Reboot device — sometimes substrate caches the loader list.
+
+================================================================
+  HOW IT'S WIRED INTERNALLY (for code-reading)
+================================================================
+
+App side (e.g. Zalo):
+    [AVCaptureSession setupSession]
+       → adds AVCaptureVideoDataOutput
+       → setSampleBufferDelegate:queue:  ← HOOK INTERCEPTS HERE
+
+Our hook:
+    1. Reads videoPath from config plist
+    2. Builds VcamProxyDelegate wrapping the app's real delegate
+    3. Calls %orig with the proxy → session now delivers frames to proxy
+
+Per-frame (called by camera capture thread, ~30-60 fps):
+    Camera → captureOutput:didOutputSampleBuffer:fromConnection:
+       → proxy lazy-inits AVAssetReader on first frame (matches W/H/format)
+       → proxy reads next CMSampleBuffer from the video track
+       → proxy rebuilds the buffer with real timing + fake imageBuffer
+       → proxy forwards to app's real delegate
+
+Loop:
+    When AVAssetReader runs out of frames → proxy cancels + restarts the
+    reader → loops video seamlessly.
+
+================================================================
+  SECURITY / DETECTION NOTES
+================================================================
+
+WHAT THIS HIDES
+- substrate dylib names from dlopen()
+- /var/jb and other JB paths from NSFileManager.fileExistsAtPath:
+- JB URL schemes from UIApplication.canOpenURL:
+
+WHAT THIS DOESN'T HIDE (gaps to be aware of)
+- Lower-level C syscalls (stat, lstat, access, fopen) — apps using those
+  for jailbreak detection can still see /var/jb. If you need this, port
+  the C-level hooks from ChangeInfoIos/tweak/Hooks.mm.
+- _dyld_image_count walks — substrate dylib name still appears in the
+  loaded image list. If anti-tweak SDK walks dyld, it will see us.
+- The CMSampleBuffer pixel data is real video, but the buffer metadata
+  (CMFormatDescription, CMTime, ARC retain counts) is freshly minted —
+  some sophisticated anti-fraud watching for "synthetic" buffer
+  attributes might notice. Real timing reuse mitigates the common
+  fingerprints but isn't 100%.
+
+For deeper detection bypass, integrate the C-level hooks from the
+ChangeInfoIos Hooks.mm (stat/lstat/access/fopen/_dyld_*) into this
+project. They're orthogonal — port the static const path table + the
+MSHookFunction install calls — and rebuild.
+
+================================================================
+  CHANGELOG
+================================================================
+
+1.0.0 — initial release
+  - AVCaptureVideoDataOutput frame replacement
+  - AVAssetReader-based video decode with format matching
+  - Real timing reuse for natural PTS continuity
+  - Auto-loop when video exhausts
+  - Mic / audio passthrough
+  - Basic JB hide (NSFileManager + canOpenURL + dlopen)
